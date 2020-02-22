@@ -55,71 +55,74 @@ async function handleRequest(req, res, spare) {
     try {
         const username = body.username;
         const password = body.password;
+        const ip = req.headers['x-appengine-user-ip'] || req.header['x-forwarded-for'] || req.connection.remoteAddress;
         let ret;
         let sessionKey = null;
+        const dialCode = body.dialCode;
+        const phoneNumber = body.phoneNumber;
         switch (requestType) {
-        case 'updateStore':
-            const newDataStore = body.dataStore;
-            if (typeof newDataStore !== typeof {}) {
-                res.status(400).send('must include a new data store in request');
-                return;
-            }
-            await mongoHandler.setUserDataStore(userDoc._id, newDataStore);
-            res.status(200).send();
-            break;
-        case 'getStore':
-            res.status(200).send(JSON.stringify({
-                dataStore: userDoc.dataStore,
-            }));
-            break;
         case 'ping':
             res.status(200).send('pong');
             break;
-        case 'userDetails':
-            ret = {
-                username: userDoc.username,
-                displayName: userDoc.displayName
-            };
-            res.status(200).send(JSON.stringify(ret))
-            break;
         case 'sendSMS':
-            const dialCode = body.dialCode;
-            const phoneNumber = body.phoneNumber;
             if (!dialCode || !phoneNumber) {
                 throw Error("Not all fields filled");
             }
             // Anti-Spam Measures
-            //
+            if (await mongoHandler.authAbuseIsDetected(ip, dialCode, phoneNumber)) {
+                res.status(420).send(JSON.stringify({ error: 'Rate limit', message: 'You are sending too many requests' }))
+                return;
+            }
             twilioClient.verify.services(process.env.VERIFY_ID)
                 .verifications
                 .create({ to: `+${dialCode}${phoneNumber}`, channel: 'sms' })
                 .then(verification => console.log(verification.status));
+            // Log event
+            await mongoHandler.logSendSMS(
+                ip,
+                dialCode,
+                phoneNumber
+            );
             res.status(200).send();
             break;
         case 'checkCode':
-            break;
-        case 'signup':
-            const displayName = body.displayName;
+            const code = body.code;
+            if (!code || !dialCode || !phoneNumber) {
+                throw Error ("missing verification code");
+            }
             try {
-                userDoc = await mongoHandler.createUser(username, password, displayName);
+                const verificationCheck = await twilioClient.verify.services(process.env.VERIFY_ID)
+                    .verificationChecks
+                    .create({
+                        to: `+${dialCode}${phoneNumber}`,
+                        code });
+                console.log(verificationCheck);
+                if (verificationCheck.status === 'approved') {
+                } else {
+                    res.status(400).send();
+                    return;
+                }
             } catch (error) {
-                res.status(400).send(error.toString());
+                console.log(error);
+                if (error.status === 404) {
+                    // that code expired
+                    res.status(404).send();
+                }
                 return;
             }
-            ret = await mongoHandler.createSession(userDoc._id)
-            sessionKey = ret.sessionKey;
-            res.status(200).send(JSON.stringify({ sessionKey }));
-            break;
-        case 'login':
-            try {
-                userDoc = await mongoHandler.verifyPassword(username, password);
-            } catch (error) {
-                res.status(403).send(error.toString());
-                return;
+            console.log('done now can do other things');
+            const referrerCode = body.referrerCode;
+            // This is to check who referred the user, gives points
+            // Check if user account exists
+            const userExists = await mongoHandler.doesUserExist(dialCode, phoneNumber);
+            console.log(userExists);
+            // If user account doesn't exist, create user account and pass referrer Code
+            if (!userExists) {
+                await mongoHandler.createUser(dialCode, phoneNumber, referrerCode);
             }
-            ret = await mongoHandler.createSession(userDoc._id)
-            sessionKey = ret.sessionKey;
-            res.status(200).send(JSON.stringify({ sessionKey }));
+            // create a session;
+            const { sessionKey } = await mongoHandler.createSession(dialCode, phoneNumber, ip);
+            res.status(200).send(sessionKey);
             break;
         default:
             res.status(400).send(`Unsupported requestType "${requestType}"`);
