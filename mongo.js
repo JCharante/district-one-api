@@ -101,6 +101,9 @@ module.exports = {
         return !ret;
     },
     createUser: async function(dialCode, phoneNumber, referrerCode) {
+        if (referrerCode === undefined) {
+            referrerCode = '';
+        }
         const client = await getConnectedClient();
         const db = client.db('district-one');
         const col = db.collection('users');

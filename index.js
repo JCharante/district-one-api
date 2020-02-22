@@ -87,8 +87,9 @@ async function handleRequest(req, res, spare) {
             break;
         case 'checkCode':
             const code = body.code;
-            if (!code || !dialCode || !phoneNumber) {
-                throw Error ("missing verification code");
+            if (code === undefined || !dialCode || !phoneNumber) {
+                res.status(400).send("Missing params");
+                return;
             }
             try {
                 const verificationCheck = await twilioClient.verify.services(process.env.VERIFY_ID)
@@ -129,7 +130,7 @@ async function handleRequest(req, res, spare) {
         }
     } catch (error) {
         console.error('Error while handling request: %o', error);
-        res.status(500).send(`Error while handling request: ${error}`);
+        res.status(500).send(`Error while handling request: ${error.message}`);
     }
 }
 
