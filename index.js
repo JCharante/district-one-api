@@ -36,7 +36,7 @@ async function handleRequest(req, res, spare) {
     let userDoc;
     
     // enforce a session key for non-login, non-signup, or non-ping requests
-    if (requestType !== "ping" && requestType !== "sendSMS" && requestType !== "checkCode") {
+    if (requestType !== "ping" && requestType !== "sendSMS" && requestType !== "checkCode" && requestType !== 'checkSessionKey') {
         const sessionKey = body.sessionKey;
         if (!sessionKey) {
             res.status(403).send('You must include a session key in your request');
@@ -123,7 +123,10 @@ async function handleRequest(req, res, spare) {
             }
             // create a session;
             const { sessionKey } = await mongoHandler.createSession(dialCode, phoneNumber, ip);
-            res.status(200).send(sessionKey);
+            res.status(200).send({ sessionKey });
+            break;
+        case 'checkSessionKey':
+            await checkSessionKey(body, res);
             break;
         default:
             res.status(400).send(`Unsupported requestType "${requestType}"`);
@@ -131,6 +134,21 @@ async function handleRequest(req, res, spare) {
     } catch (error) {
         console.error('Error while handling request: %o', error);
         res.status(500).send(`Error while handling request: ${error.message}`);
+    }
+}
+
+async function checkSessionKey(body, res) {
+    const sessionKey_string = body.sessionKey;
+    if (sessionKey_string === undefined) {
+        res.status(400).send("Missing params");
+        return;
+    }
+    const { valid, dialCode, phoneNumber } = await mongoHandler.sessionKeyIsValid(sessionKey_string);
+    if (valid) {
+        const { gaveReward } = await mongoHandler.dailyLoginReward(dialCode, phoneNumber);
+        res.status(200).send({ valid, gaveReward });
+    } else {
+        res.status(200).send({ valid })
     }
 }
 

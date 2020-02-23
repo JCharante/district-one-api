@@ -48,6 +48,44 @@ module.exports = {
         console.log("Created session for ", dialCode, phoneNumber, "from ", ip);
         return { sessionKey: ret.insertedId.toString() };
     },
+    sessionKeyIsValid: async function(sessionKey_string) {
+        const client = await getConnectedClient();
+        const db = client.db('district-one');
+        const sessionsCollection = db.collection('sessions');
+        const ret = await sessionsCollection.findOne({ _id: ObjectId(sessionKey_string) });
+        await client.close();
+        if (ret) {
+            return { valid: true, dialCode: ret.dialCode, phoneNumber: ret.phoneNumber }
+        } else {
+            return { valid: false }
+        }
+    },
+    dailyLoginReward: async function(dialCode, phoneNumber) {
+        const client = await getConnectedClient();
+        const db = client.db('district-one');
+        const usersCollection = db.collection('users');
+        const ret = await usersCollection.findOne({ dialCode, phoneNumber });
+        if (!ret) {
+            await client.close();
+            return { gaveReward: false };
+        }
+        let shouldGiveReward = false;
+        let lastLoginRewardTime = ret.lastLoginRewardTime;
+        if (lastLoginRewardTime === undefined) {
+            shouldGiveReward = true;
+        } else {
+            // calculate if it's been six hours
+            lastLoginRewardTime.setHours(lastLoginRewardTime.getHours() + 6);
+            if (new Date() > lastLoginRewardTime) {
+                shouldGiveReward = true;
+            }
+        }
+        if (shouldGiveReward) {
+            await usersCollection.updateOne({ dialCode, phoneNumber }, { '$set': { lastLoginRewardTime: new Date() }, '$inc': { balance: 5 } });
+        }
+        await client.close();
+        return { gaveReward: shouldGiveReward }
+    },
     authAbuseIsDetected: async function(ip, dialCode, phoneNumber) {
         const client = await getConnectedClient()
         const db = client.db('district-one');
