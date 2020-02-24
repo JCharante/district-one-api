@@ -199,6 +199,20 @@ module.exports = {
         )
         await client.close();
     },
+    getAvatarsForTeams: async function(list_of_team_number) {
+        const client = await getConnectedClient();
+        const db = client.db('district-one');
+        const teamsCollection = db.collection('teams');
+        const teams = await teamsCollection.find({ team_number: { '$in': list_of_team_number }}).toArray();
+        const ret = {}
+        teams.forEach((teamDoc) => {
+            if ('avatar' in teamDoc) {
+                ret[teamDoc.team_number] = teamDoc.avatar;
+            }
+        })
+        await client.close();
+        return ret;
+    },
     getTeamsForTeamList: async function() {
         const client = await getConnectedClient();
         const db = client.db('district-one');

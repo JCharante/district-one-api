@@ -135,6 +135,9 @@ async function handleRequest(req, res, spare) {
         case 'getTeamsForTeamList':
             await getTeamsForTeamList(body, res);
             break;
+        case 'getAvatarsForTeams':
+            await getAvatarsForTeams(body, res);
+            break;
         default:
             res.status(400).send(`Unsupported requestType "${requestType}"`);
         }
@@ -199,7 +202,15 @@ async function getTeamsForTeamList(body, res) {
     res.status(200).send({
         teams
     })
-    return;
+}
+
+async function getAvatarsForTeams(body, res) {
+    const teams = body.list_of_team_number;
+    if (teams === undefined) {
+        res.status(400).send({"error_msg": "Missing params"})
+    }
+    const data = await mongoHandler.getAvatarsForTeams(teams);
+    res.status(200).send(data);
 }
 
 app.post('/', handleRequest);
