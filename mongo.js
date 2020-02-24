@@ -141,6 +141,18 @@ module.exports = {
         await client.close();
         return;
     },
+    getTeamAndEventLikes: async function(dialCode, phoneNumber) {
+        const client = await getConnectedClient();
+        const db = client.db('district-one');
+        const teamLikesCollection = db.collection('teamLikes');
+        let teamLikes = (await teamLikesCollection
+            .find({ dialCode, phoneNumber })
+            .toArray())
+            .map((document) => { return document.teamNumber });
+        let eventLikes = [];
+        await client.close();
+        return { teamLikes, eventLikes };
+    },
     doesUserExist: async function(dialCode, phoneNumber) {
         const client = await getConnectedClient();
         const db = client.db('district-one');

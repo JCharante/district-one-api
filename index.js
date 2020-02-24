@@ -132,6 +132,9 @@ async function handleRequest(req, res, spare) {
         case 'unlikeTeam':
             await preCaller(body, res, unlikeTeam)
             break;
+        case 'getTeamAndEventLikes':
+            await preCaller(body, res, getTeamAndEventLikes);
+            break;
         case 'getTeamsForTeamList':
             await getTeamsForTeamList(body, res);
             break;
@@ -177,6 +180,11 @@ async function preCaller(body, res, async_callback) {
     await async_callback(body, res, dialCode, phoneNumber);
 }
 
+async function getTeamAndEventLikes(body, res, dialCode, phoneNumber) {
+    const { teamLikes, eventLikes } = await mongoHandler.getTeamAndEventLikes(dialCode, phoneNumber);
+    res.status(200).send({ teamLikes, eventLikes });
+}
+
 async function likeTeam(body, res, dialCode, phoneNumber) {
     const teamNumber_int = body.teamNumber;
     if (teamNumber_int === undefined) {
@@ -184,17 +192,27 @@ async function likeTeam(body, res, dialCode, phoneNumber) {
         return;
     }
     await mongoHandler.likeTeam(dialCode, phoneNumber, teamNumber_int);
-    res.status(200).send({"success_msg": `You now like team ${teamNumber_int}`});
+    const { teamLikes, eventLikes } = await mongoHandler.getTeamAndEventLikes(dialCode, phoneNumber);
+    res.status(200).send({
+        "success_msg": `You now like team ${teamNumber_int}`,
+        teamLikes,
+        eventLikes
+    });
 }
 
 async function unlikeTeam(body, res, dialCode, phoneNumber) {
     const teamNumber_int = body.teamNumber;
-    if (teamNumber_string === undefined) {
+    if (teamNumber_int === undefined) {
         res.status(400).send({"error_msg": "Missing params"});
         return;
     }
-    await mongoHandler.likeTeam(dialCode, phoneNumber, teamNumber_int);
-    res.status(200).send({"success_msg": `You no longer like ${teamNumber_int}`});
+    await mongoHandler.unlikeTeam(dialCode, phoneNumber, teamNumber_int);
+    const { teamLikes, eventLikes } = await mongoHandler.getTeamAndEventLikes(dialCode, phoneNumber);
+    res.status(200).send({
+        "success_msg": `You no longer like ${teamNumber_int}`,
+        teamLikes,
+        eventLikes
+    });
 }
 
 async function getTeamsForTeamList(body, res) {
