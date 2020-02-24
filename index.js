@@ -35,6 +35,7 @@ async function handleRequest(req, res, spare) {
     requestType = body.requestType || requestType;
     let userDoc;
     
+    /*
     // enforce a session key for non-login, non-signup, or non-ping requests
     if (requestType !== "ping" && requestType !== "sendSMS" && requestType !== "checkCode" && requestType !== 'checkSessionKey') {
         const sessionKey = body.sessionKey;
@@ -51,13 +52,10 @@ async function handleRequest(req, res, spare) {
             return
         }
     }
+     */
     
     try {
-        const username = body.username;
-        const password = body.password;
         const ip = req.headers['x-appengine-user-ip'] || req.header['x-forwarded-for'] || req.connection.remoteAddress;
-        let ret;
-        let sessionKey = null;
         const dialCode = body.dialCode;
         const phoneNumber = body.phoneNumber;
         switch (requestType) {
@@ -128,6 +126,15 @@ async function handleRequest(req, res, spare) {
         case 'checkSessionKey':
             await checkSessionKey(body, res);
             break;
+        case 'likeTeam':
+            await preCaller(body, res, likeTeam)
+            break;
+        case 'unlikeTeam':
+            await preCaller(body, res, unlikeTeam)
+            break;
+        case 'getTeamsForTeamList':
+            await getTeamsForTeamList(body, res);
+            break;
         default:
             res.status(400).send(`Unsupported requestType "${requestType}"`);
         }
@@ -150,6 +157,49 @@ async function checkSessionKey(body, res) {
     } else {
         res.status(200).send({ valid })
     }
+}
+
+async function preCaller(body, res, async_callback) {
+    const sessionKey_string = body.sessionKey;
+    if (sessionKey_string === undefined) {
+        res.status(400).send({"error_msg": "Missing session key"});
+        return;
+    }
+    // check session key is valid
+    const { valid, dialCode, phoneNumber } = await mongoHandler.sessionKeyIsValid(sessionKey_string);
+    if (!valid) {
+        res.status(403).send({"error_msg": "Invalid session key"});
+        return;
+    }
+    await async_callback(body, res, dialCode, phoneNumber);
+}
+
+async function likeTeam(body, res, dialCode, phoneNumber) {
+    const teamNumber_int = body.teamNumber;
+    if (teamNumber_int === undefined) {
+        res.status(400).send({"error_msg": "Missing params"});
+        return;
+    }
+    await mongoHandler.likeTeam(dialCode, phoneNumber, teamNumber_int);
+    res.status(200).send({"success_msg": `You now like team ${teamNumber_int}`});
+}
+
+async function unlikeTeam(body, res, dialCode, phoneNumber) {
+    const teamNumber_int = body.teamNumber;
+    if (teamNumber_string === undefined) {
+        res.status(400).send({"error_msg": "Missing params"});
+        return;
+    }
+    await mongoHandler.likeTeam(dialCode, phoneNumber, teamNumber_int);
+    res.status(200).send({"success_msg": `You no longer like ${teamNumber_int}`});
+}
+
+async function getTeamsForTeamList(body, res) {
+    const teams = await mongoHandler.getTeamsForTeamList();
+    res.status(200).send({
+        teams
+    })
+    return;
 }
 
 app.post('/', handleRequest);

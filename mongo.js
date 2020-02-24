@@ -122,6 +122,25 @@ module.exports = {
         await client.close();
         return;
     },
+    likeTeam: async function(dialCode, phoneNumber, teamNumber) {
+        const client = await getConnectedClient()
+        const db = client.db('district-one');
+        const teamLikesCollection = db.collection('teamLikes');
+        let ret = await teamLikesCollection.findOne({ dialCode, phoneNumber, teamNumber });
+        if (ret === null) {
+            ret = await teamLikesCollection.insertOne({ dialCode, phoneNumber, teamNumber });
+        }
+        await client.close();
+        return;
+    },
+    unlikeTeam: async function(dialCode, phoneNumber, teamNumber) {
+        const client = await getConnectedClient()
+        const db = client.db('district-one');
+        const teamLikesCollection = db.collection('teamLikes');
+        let ret = await teamLikesCollection.deleteOne({ dialCode, phoneNumber, teamNumber });
+        await client.close();
+        return;
+    },
     doesUserExist: async function(dialCode, phoneNumber) {
         const client = await getConnectedClient();
         const db = client.db('district-one');
@@ -179,5 +198,36 @@ module.exports = {
             }
         )
         await client.close();
-    }
+    },
+    getTeamsForTeamList: async function() {
+        const client = await getConnectedClient();
+        const db = client.db('district-one');
+        const teamsCollection = db.collection('teams');
+        const ret = await teamsCollection.aggregate([
+            {
+                '$lookup': {
+                    'from': 'teamLikes',
+                    'localField': 'team_number',
+                    'foreignField': 'teamNumber',
+                    'as': 'likedBy'
+                }
+            }, {
+                '$group': {
+                    '_id': null,
+                    'teams': {
+                        '$push': {
+                            'likes': {
+                                '$size': '$likedBy'
+                            },
+                            'team_number': '$team_number',
+                            'nickname': '$nickname'
+                        }
+                    }
+                }
+            }
+        ]).toArray();
+        await client.close();
+        return ret[0].teams;
+        
+    },
 }
