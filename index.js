@@ -135,11 +135,20 @@ async function handleRequest(req, res, spare) {
         case 'unlikeTeam':
             await preCaller(body, res, unlikeTeam)
             break;
+        case 'likeEvent':
+            await preCaller(body, res, likeEvent)
+            break;
+        case 'unlikeEvent':
+            await preCaller(body, res, unlikeEvent)
+            break;
         case 'getTeamAndEventLikes':
             await preCaller(body, res, getTeamAndEventLikes);
             break;
         case 'getTeamsForTeamList':
             await getTeamsForTeamList(body, res);
+            break;
+        case 'getShortEventInfo':
+            await getShortEventInfo(body, res);
             break;
         case 'getAvatarsForTeams':
             await getAvatarsForTeams(body, res);
@@ -203,6 +212,21 @@ async function likeTeam(body, res, dialCode, phoneNumber) {
     });
 }
 
+async function likeEvent(body, res, dialCode, phoneNumber) {
+    const eventCode = body.eventCode;
+    if (eventCode === undefined) {
+        res.status(400).send({"error_msg": "Missing params"});
+        return;
+    }
+    await mongoHandler.likeEvent(dialCode, phoneNumber, eventCode);
+    const { teamLikes, eventLikes } = await mongoHandler.getTeamAndEventLikes(dialCode, phoneNumber);
+    res.status(200).send({
+        "success_msg": `You have favorited ${eventCode}`,
+        teamLikes,
+        eventLikes
+    });
+}
+
 async function unlikeTeam(body, res, dialCode, phoneNumber) {
     const teamNumber_int = body.teamNumber;
     if (teamNumber_int === undefined) {
@@ -218,10 +242,32 @@ async function unlikeTeam(body, res, dialCode, phoneNumber) {
     });
 }
 
+async function unlikeEvent(body, res, dialCode, phoneNumber) {
+    const eventCode = body.eventCode;
+    if (eventCode === undefined) {
+        res.status(400).send({"error_msg": "Missing params"});
+        return;
+    }
+    await mongoHandler.unlikeEvent(dialCode, phoneNumber, eventCode);
+    const { teamLikes, eventLikes } = await mongoHandler.getTeamAndEventLikes(dialCode, phoneNumber);
+    res.status(200).send({
+        "success_msg": `You have unfavorited ${eventCode}`,
+        teamLikes,
+        eventLikes
+    });
+}
+
 async function getTeamsForTeamList(body, res) {
     const teams = await mongoHandler.getTeamsForTeamList();
     res.status(200).send({
         teams
+    })
+}
+
+async function getShortEventInfo(body, res) {
+    const events = await mongoHandler.getShortEventInfo();
+    res.status(200).send({
+        events
     })
 }
 

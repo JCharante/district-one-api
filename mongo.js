@@ -136,6 +136,17 @@ module.exports = {
         await client.close();
         return;
     },
+    likeEvent: async function(dialCode, phoneNumber, eventCode) {
+        const client = await getConnectedClient()
+        const db = client.db('district-one');
+        const eventLikesCollection = db.collection('eventLikes');
+        let ret = await eventLikesCollection.findOne({ dialCode, phoneNumber, eventCode });
+        if (ret === null) {
+            ret = await eventLikesCollection.insertOne({ dialCode, phoneNumber, eventCode });
+        }
+        await client.close();
+        return;
+    },
     unlikeTeam: async function(dialCode, phoneNumber, teamNumber) {
         const client = await getConnectedClient()
         const db = client.db('district-one');
@@ -144,15 +155,27 @@ module.exports = {
         await client.close();
         return;
     },
+    unlikeEvent: async function(dialCode, phoneNumber, eventCode) {
+        const client = await getConnectedClient()
+        const db = client.db('district-one');
+        const eventLikesCollection = db.collection('eventLikes');
+        let ret = await eventLikesCollection.deleteOne({ dialCode, phoneNumber, eventCode });
+        await client.close();
+        return;
+    },
     getTeamAndEventLikes: async function(dialCode, phoneNumber) {
         const client = await getConnectedClient();
         const db = client.db('district-one');
         const teamLikesCollection = db.collection('teamLikes');
+        const eventLikesCollection = db.collection('eventLikes');
         let teamLikes = (await teamLikesCollection
             .find({ dialCode, phoneNumber })
             .toArray())
             .map((document) => { return document.teamNumber });
-        let eventLikes = [];
+        let eventLikes = (await eventLikesCollection
+            .find({ dialCode, phoneNumber })
+            .toArray())
+            .map((document) => { return document.eventCode });
         await client.close();
         return { teamLikes, eventLikes };
     },
@@ -257,6 +280,73 @@ module.exports = {
         ]).toArray();
         await client.close();
         return ret[0].teams;
+        
+    },
+    getShortEventInfo: async function() {
+        const client = await getConnectedClient();
+        const db = client.db('district-one');
+        const settingsCollection = db.collection('settings');
+        const ret = await settingsCollection.aggregate([
+            {
+                '$match': {
+                    'environment': '2020'
+                }
+            }, {
+                '$unwind': {
+                    'path': '$countedEvents',
+                    'preserveNullAndEmptyArrays': true
+                }
+            }, {
+                '$project': {
+                    '_id': null,
+                    'eventCode': '$countedEvents'
+                }
+            }, {
+                '$lookup': {
+                    'from': 'events',
+                    'localField': 'eventCode',
+                    'foreignField': 'key',
+                    'as': 'eventInfo'
+                }
+            }, {
+                '$unwind': {
+                    'path': '$eventInfo',
+                    'preserveNullAndEmptyArrays': true
+                }
+            }, {
+                '$replaceRoot': {
+                    'newRoot': '$eventInfo'
+                }
+            }, {
+                '$lookup': {
+                    'from': 'eventLikes',
+                    'localField': 'key',
+                    'foreignField': 'eventCode',
+                    'as': 'likedBy'
+                }
+            }, {
+                '$group': {
+                    '_id': null,
+                    'events': {
+                        '$push': {
+                            'likes': {
+                                '$size': '$likedBy'
+                            },
+                            'eventCode': '$key',
+                            'end_date': '$end_date',
+                            'start_date': '$start_date',
+                            'short_name': '$short_name',
+                            'week': '$week',
+                            'name': '$name',
+                            'district': '$district',
+                            'event_type_string': '$event_type_string'
+                        }
+                    }
+                }
+            }
+        ]).toArray();
+        await client.close();
+        return ret[0].events;
         
     },
 }
