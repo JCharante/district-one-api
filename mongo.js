@@ -49,6 +49,9 @@ module.exports = {
         return { sessionKey: ret.insertedId.toString() };
     },
     sessionKeyIsValid: async function(sessionKey_string) {
+        if (sessionKey_string.length !== 12 && sessionKey_string.length !== 24) {
+            return false;
+        }
         const client = await getConnectedClient();
         const db = client.db('district-one');
         const sessionsCollection = db.collection('sessions');

@@ -24,12 +24,16 @@ async function handleRequest(req, res, spare) {
         'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
         'Access-Control-Allow-Headers': 'Content-Type',
     });
+    const ip = req.headers['x-appengine-user-ip'] || req.header['x-forwarded-for'] || req.connection.remoteAddress;
     if (req.method === 'OPTIONS') {
+        console.log(`HTTP ${req.method} / from ${ip}`)
         res.status(200).send();
         return;
+    } else {
+        console.log(`HTTP ${req.method} / from ${ip} | ${req.body.requestType}`)
     }
     let body = req.body;
-    console.log('Received request %o', body);
+    // console.log('Received request %o', body);
     
     let requestType = ""
     requestType = body.requestType || requestType;
@@ -55,7 +59,6 @@ async function handleRequest(req, res, spare) {
      */
     
     try {
-        const ip = req.headers['x-appengine-user-ip'] || req.header['x-forwarded-for'] || req.connection.remoteAddress;
         const dialCode = body.dialCode;
         const phoneNumber = body.phoneNumber;
         switch (requestType) {
@@ -194,7 +197,7 @@ async function likeTeam(body, res, dialCode, phoneNumber) {
     await mongoHandler.likeTeam(dialCode, phoneNumber, teamNumber_int);
     const { teamLikes, eventLikes } = await mongoHandler.getTeamAndEventLikes(dialCode, phoneNumber);
     res.status(200).send({
-        "success_msg": `You now like team ${teamNumber_int}`,
+        "success_msg": `You now like FRC team ${teamNumber_int}`,
         teamLikes,
         eventLikes
     });
@@ -209,7 +212,7 @@ async function unlikeTeam(body, res, dialCode, phoneNumber) {
     await mongoHandler.unlikeTeam(dialCode, phoneNumber, teamNumber_int);
     const { teamLikes, eventLikes } = await mongoHandler.getTeamAndEventLikes(dialCode, phoneNumber);
     res.status(200).send({
-        "success_msg": `You no longer like ${teamNumber_int}`,
+        "success_msg": `You no longer like FRC team ${teamNumber_int}`,
         teamLikes,
         eventLikes
     });
