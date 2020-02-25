@@ -153,6 +153,9 @@ async function handleRequest(req, res, spare) {
         case 'getAvatarsForTeams':
             await getAvatarsForTeams(body, res);
             break;
+        case 'getEventInfo':
+            await getEventInfo(body, res);
+            break;
         default:
             res.status(400).send(`Unsupported requestType "${requestType}"`);
         }
@@ -195,6 +198,20 @@ async function preCaller(body, res, async_callback) {
 async function getTeamAndEventLikes(body, res, dialCode, phoneNumber) {
     const { teamLikes, eventLikes } = await mongoHandler.getTeamAndEventLikes(dialCode, phoneNumber);
     res.status(200).send({ teamLikes, eventLikes });
+}
+
+async function getEventInfo(body, res) {
+    const eventCode = body.eventCode;
+    if (eventCode === undefined) {
+        res.status(400).send({"error_msg": "Missing params"});
+        return;
+    }
+    try {
+        const ret = await mongoHandler.getEventInfo(eventCode);
+        res.status(200).send(ret);
+    } catch (err) {
+        res.status(400).send(err);
+    }
 }
 
 async function likeTeam(body, res, dialCode, phoneNumber) {

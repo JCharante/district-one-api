@@ -282,6 +282,55 @@ module.exports = {
         return ret[0].teams;
         
     },
+    createEventBet: async function(dialCode, phoneNumber, eventCode, teamNumber, betType) {
+        const client = await getConnectedClient();
+        const db = client.db('district-one');
+        const eventBetsCollection = db.collection('eventBets');
+        // verify event exists
+        const eventsCollection = db.collection('events');
+        const eventDoc = await eventsCollection.findOne({ key: eventCode });
+        if (eventDoc === nul) {
+            await client.close();
+            throw Error("This event does not exist.");
+        }
+        // verify team is at event
+        if (!eventDoc.team_numbers.includes(teamNumber)) {
+            await client.close();
+            throw Error("This team is not at this event.");
+        }
+        // verify user is not at capacity for this type of bet
+        const settingsCollection = db.collection('settings');
+        const settings = settingsCollection.findOne({ environment: "2020" });
+        if (betType === "winner") {
+            const preExistingBets = eventBetsCollection.find({ dialCode, phoneNumber, eventCode, betType}).toArray();
+            if (preExistingBets.length > settings.maxWinnerBets) {
+                await client.close();
+                throw Error("You have reached the capacity for this type of bet at this event.");
+            }
+        }
+        // insert bet
+        await eventBetsCollection.insertOne({ dialCode, phoneNumber, eventCode, betType, teamNumber });
+    },
+    getEventInfo: async function(eventCode) {
+        const client = await getConnectedClient();
+        const db = client.db('district-one');
+        const eventsCollection = db.collection('events');
+        const ret = await eventsCollection.findOne({ key: eventCode });
+        if (ret === null) {
+            await client.close();
+            return {};
+        }
+        // get relevant bets
+        const eventBetsCollection = db.collection('eventBets');
+        const bets = (await eventBetsCollection.find({ eventCode }).toArray()).map((bet) => {
+            return {
+                betType: bet.betType,
+                teamNumber: bet.teamNumber
+            }
+        })
+        ret.bets = bets;
+        return ret;
+    },
     getShortEventInfo: async function() {
         const client = await getConnectedClient();
         const db = client.db('district-one');
