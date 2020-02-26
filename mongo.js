@@ -331,6 +331,19 @@ module.exports = {
         ret.bets = bets;
         return ret;
     },
+    getTeamInfo: async function(team_number) {
+        const client = await getConnectedClient();
+        const db = client.db('district-one');
+        const teamDoc = await db.collection('teams').findOne({ team_number });
+        const matchesArray = await db.collection('matches').find({ team_keys_int: team_number }).toArray();
+        const matchRankingsArray = await db.collection('match_rankings').find({ team_keys_int: team_number }).toArray();
+        await client.close();
+        return {
+            ...teamDoc,
+            matchesArray,
+            matchRankingsArray
+        }
+    },
     getShortEventInfo: async function() {
         const client = await getConnectedClient();
         const db = client.db('district-one');

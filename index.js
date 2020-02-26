@@ -156,6 +156,9 @@ async function handleRequest(req, res, spare) {
         case 'getEventInfo':
             await getEventInfo(body, res);
             break;
+        case 'getTeamInfo':
+            await getTeamInfo(body, res);
+            break;
         default:
             res.status(400).send(`Unsupported requestType "${requestType}"`);
         }
@@ -208,6 +211,20 @@ async function getEventInfo(body, res) {
     }
     try {
         const ret = await mongoHandler.getEventInfo(eventCode);
+        res.status(200).send(ret);
+    } catch (err) {
+        res.status(400).send(err);
+    }
+}
+
+async function getTeamInfo(body, res) {
+    const teamNumber = body.teamNumber;
+    if (teamNumber === undefined) {
+        res.status(400).send({"error_msg": "Missing params"});
+        return;
+    }
+    try {
+        const ret = await mongoHandler.getTeamInfo(teamNumber);
         res.status(200).send(ret);
     } catch (err) {
         res.status(400).send(err);
