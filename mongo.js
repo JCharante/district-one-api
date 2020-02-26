@@ -329,6 +329,7 @@ module.exports = {
             }
         })
         ret.bets = bets;
+        await client.close();
         return ret;
     },
     getTeamInfo: async function(team_number) {
