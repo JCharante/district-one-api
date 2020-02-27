@@ -322,7 +322,7 @@ module.exports = {
             return {};
         }
         const matchesArray = await db.collection('matches').find({ event_key: eventCode }).toArray();
-        const matchRankingsArray = await db.collection('match_rankings').find({ event_key: eventCode }).toArray();
+        const matchRankingsArray = await db.collection('match_rankings').find({ event_key: eventCode, needsRecalc: false }).toArray();
         // merge arrays
         const matches = matchesArray.map((matches_doc) => {
             // see if in matchRankings
@@ -350,7 +350,7 @@ module.exports = {
         const db = client.db('district-one');
         const teamDoc = await db.collection('teams').findOne({ team_number });
         const matchesArray = await db.collection('matches').find({ team_keys_int: team_number }).toArray();
-        const matchRankingsArray = await db.collection('match_rankings').find({ team_keys_int: team_number }).toArray();
+        const matchRankingsArray = await db.collection('match_rankings').find({ team_keys_int: team_number, needsRecalc: false }).toArray();
         const events = await db.collection('events').find({ team_numbers: team_number }).toArray();
         // merge arrays
         const matches = matchesArray.map((matches_doc) => {
