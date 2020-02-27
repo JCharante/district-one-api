@@ -321,6 +321,17 @@ module.exports = {
             await client.close();
             return {};
         }
+        const matchesArray = await db.collection('matches').find({ event_key: eventCode }).toArray();
+        const matchRankingsArray = await db.collection('match_rankings').find({ event_key: eventCode }).toArray();
+        // merge arrays
+        const matches = matchesArray.map((matches_doc) => {
+            // see if in matchRankings
+            const search_matches = matchRankingsArray.filter((mR) => mR.key === matches_doc.key);
+            if (search_matches.length > 0) {
+                matches_doc.matchRankings = search_matches[0]
+            }
+            return matches_doc;
+        })
         // get relevant bets
         const eventBetsCollection = db.collection('eventBets');
         const bets = (await eventBetsCollection.find({ eventCode }).toArray()).map((bet) => {
@@ -330,6 +341,7 @@ module.exports = {
             }
         })
         ret.bets = bets;
+        ret.matches = matches;
         await client.close();
         return ret;
     },
