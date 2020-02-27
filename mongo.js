@@ -272,7 +272,8 @@ module.exports = {
                                 '$size': '$likedBy'
                             },
                             'team_number': '$team_number',
-                            'nickname': '$nickname'
+                            'nickname': '$nickname',
+                            'ranking': '$ranking'
                         }
                     }
                 }
@@ -338,11 +339,19 @@ module.exports = {
         const teamDoc = await db.collection('teams').findOne({ team_number });
         const matchesArray = await db.collection('matches').find({ team_keys_int: team_number }).toArray();
         const matchRankingsArray = await db.collection('match_rankings').find({ team_keys_int: team_number }).toArray();
+        // merge arrays
+        const matches = matchesArray.map((matches_doc) => {
+            // see if in matchRankings
+            const search_matches = matchRankingsArray.filter((mR) => mR.key === matches_doc.key);
+            if (search_matches.length > 0) {
+                matches_doc.matchRankings = search_matches[0]
+            }
+            return matches_doc;
+        })
         await client.close();
         return {
             ...teamDoc,
-            matchesArray,
-            matchRankingsArray
+            matches
         }
     },
     getShortEventInfo: async function() {
