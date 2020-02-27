@@ -339,6 +339,7 @@ module.exports = {
         const teamDoc = await db.collection('teams').findOne({ team_number });
         const matchesArray = await db.collection('matches').find({ team_keys_int: team_number }).toArray();
         const matchRankingsArray = await db.collection('match_rankings').find({ team_keys_int: team_number }).toArray();
+        const events = await db.collection('events').find({ team_numbers: team_number }).toArray();
         // merge arrays
         const matches = matchesArray.map((matches_doc) => {
             // see if in matchRankings
@@ -351,7 +352,8 @@ module.exports = {
         await client.close();
         return {
             ...teamDoc,
-            matches
+            matches,
+            events
         }
     },
     getShortEventInfo: async function() {
